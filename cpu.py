@@ -97,3 +97,162 @@ class CPU:
             sys.exit(1)
 
             address = 0
+
+            try:
+                with open(sys.argv[1]) as f:
+                    # read all lines
+                    for line in f:
+                        # remove comments
+                        comment_split = line, strip().split("#")
+                        value = comment_split[0].strip()
+
+                        # ignore blank lines
+                        if value == "":
+                            continue
+
+                        # numbers from strings to ints
+                        num = int(value, 2)
+                        self.ram[address] = num
+                        address += 1
+
+            except FileNotFoundError:
+                print("file not foind")
+                sys.exit(2)
+
+        def alu(self, op, reg_a, reg_b):
+            # ALU ops
+
+            if op == ADD:
+
+                self.reg[reg_a] += self.reg[reg_b]
+            elif op == SUB:
+                self.reg[reg_a] -= self.reg[reg_b]
+            elif op == MUL:
+                self.reg[reg_a] *= self.reg[reg_b]
+            elif op == DIV:
+                if self.reg[reg_b] == 0:
+                    print("ERROR: cannot divide by zero")
+                    sys.exit(1)
+                self.reg[reg_a] /= self.reg[reg_b]
+            elif op == AND:
+                self.reg[reg_a] = self.reg[reg_a] & self.reg[reg_b]
+            elif op == CMP:
+                if self.reg[reg_a] == self.reg[reg_b]:
+                    self.fl = 0b00000001
+
+            elif self.reg[reg_a] > self.reg[reg_b]:
+                self.fl = 0b00000010
+
+            elif self.reg[reg_a] < self.reg[reg_b]:
+                self.fl = 0b00000100
+            elif op == DEC:
+                self.reg[reg_a] -= 1
+            elif op == INC:
+                self.reg[reg_a] += 1
+            elif op == MOD:
+                if self.reg[reg_b] == 0:
+                    print("ERROR: cannot divide by zero")
+                    sys.exit(1)
+                self.reg[reg_a] %= self.reg[reg_b]
+            elif op == NOT:
+                self.reg[reg_a] = ~self.reg[reg_a]
+            elif op == OR:
+                self.reg[reg_a] = self.reg[reg_a] | self.reg[reg_b]
+            elif op == SHL:
+                self.reg[reg_a] = self.reg[reg_a] << self.reg[reg_b]
+            elif op == SHR:
+                self.reg[reg_a] = self.reg[reg_a] >> self.reg[reg_b]
+            elif op == XOR:
+                self.reg[reg_a] = self.reg[reg_a] ^ self.reg[reg_b]
+            else:
+                raise Exception("Unsupported ALU operation")
+
+        # keep value between 0-255
+            self.reg[reg_a] = self.reg[reg_a] & 0xFF
+
+    def trace(self):
+        """
+        Handy function to print out the CPU state. You might want to call this
+        from run() if you need help debugging.
+        """
+
+        print(f"TRACE: %02X | %02X %02X %02X |" % (
+            self.pc,
+            # self.fl,
+            # self.ie,
+            self.ram_read(self.pc),
+            self.ram_read(self.pc + 1),
+            self.ram_read(self.pc + 2)
+        ), end='')
+
+        for i in range(8):
+            print(" %02X" % self.reg[i], end='')
+
+        print()
+
+    def run(self):
+        """Run the CPU."""
+
+        while True:
+            # instruction register
+            ir = self.pc
+            # read command
+            op = self.ram_read(ir)
+            # read operands
+            operand_a = self.ram_read(ir + 1)
+            operand_b = self.ram_read(ir + 2)
+
+            # execute command
+            if op in self.branchtable:
+                # check if alu operation
+                if op & 0b00100000 != 0:
+                    self.branchtable[op](op, operand_a, operand_b)
+                # check number of operands
+                elif op >> 6 == 0:
+                    self.branchtable[op]()
+                elif op >> 6 == 1:
+                    self.branchtable[op](operand_a)
+                elif op >> 6 == 2:
+                    self.branchtable[op](operand_a, operand_b)
+            else:
+                print(f"Command not found: {bin(op)}")
+                sys.exit(1)
+
+            # check if command sets pc
+            # if not, update pc
+            if op & 0b00010000 == 0:
+                # op: AABCDDDD, where AA == num operands
+                self.pc += (op >> 6) + 1
+
+    def ram_read(self, mar):  # mar - Memory Address Register
+        """Return value stored at address"""
+        mdr = self.ram[mar]  # mdr - Memory Data Register
+        return mdr
+
+    def ram_write(self, mar, mdr):
+        """Write value to address"""
+        self.ram[mar] = mdr
+
+    def HLT(self):
+        sys.exit(0)
+
+    def LDI(self, operand_a, operand_b):
+        # set value of register to an int
+        self.reg[operand_a] = operand_b
+
+    def PRN(self, operand_a):
+        # print value stored in given register
+        print(self.reg[operand_a])
+
+    def PUSH(self, reg_a):
+        # decrement sp
+        self.reg[7] -= 1
+        # copy value in the given register to the address pointed to by sp
+        self.ram[self.reg[7]] = self.reg[reg_a]
+
+    def POP(self, reg_a):
+        # copy the value from the address pointed to by sp to the given
+        # register
+        self.reg[reg_a] = self.ram[self.reg[7]]
+        # increment sp
+        self.reg[7] += 1
