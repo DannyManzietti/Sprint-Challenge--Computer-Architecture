@@ -1,6 +1,5 @@
 import sys
 
-
 HLT = 0b00000001
 LDI = 0b10000010
 PRN = 0b01000111
@@ -38,18 +37,21 @@ IRET = 0b00010011
 
 
 class CPU:
+
     def __init__(self):
         # memory
         self.ram = [0] * 256
-        # reg
+        # registers
         self.reg = [0] * 8
         # reset stack pointer at R7
         self.reg[7] = 0xF4
+
         # internal registers:
         # program counter
         self.pc = 0
         # flag
         self.fl = 0
+
         # branch table
         self.branchtable = {
             HLT: self.HLT,
@@ -96,79 +98,80 @@ class CPU:
             print("ERROR: include filename")
             sys.exit(1)
 
-            address = 0
+        address = 0
 
-            try:
-                with open(sys.argv[1]) as f:
-                    # read all lines
-                    for line in f:
-                        # remove comments
-                        comment_split = line, strip().split("#")
-                        value = comment_split[0].strip()
+        try:
+            with open(sys.argv[1]) as f:
+                # read all lines
+                for line in f:
+                    # remove comments
+                    comment_split = line.strip().split("#")
 
-                        # ignore blank lines
-                        if value == "":
-                            continue
+                    value = comment_split[0].strip()
 
-                        # numbers from strings to ints
-                        num = int(value, 2)
-                        self.ram[address] = num
-                        address += 1
+                    # ignore blank lines
+                    if value == "":
+                        continue
 
-            except FileNotFoundError:
-                print("file not foind")
-                sys.exit(2)
+                     # numbers from strings to ints
+                    num = int(value, 2)
 
-        def alu(self, op, reg_a, reg_b):
-            # ALU ops
+                    self.ram[address] = num
+                    address += 1
 
-            if op == ADD:
+        except FileNotFoundError:
+            print("file not foind")
+            sys.exit(2)
 
-                self.reg[reg_a] += self.reg[reg_b]
-            elif op == SUB:
-                self.reg[reg_a] -= self.reg[reg_b]
-            elif op == MUL:
-                self.reg[reg_a] *= self.reg[reg_b]
-            elif op == DIV:
-                if self.reg[reg_b] == 0:
-                    print("ERROR: cannot divide by zero")
-                    sys.exit(1)
-                self.reg[reg_a] /= self.reg[reg_b]
-            elif op == AND:
-                self.reg[reg_a] = self.reg[reg_a] & self.reg[reg_b]
-            elif op == CMP:
-                if self.reg[reg_a] == self.reg[reg_b]:
-                    self.fl = 0b00000001
+    def alu(self, op, reg_a, reg_b):
+        # ALU ops
+
+        if op == ADD:
+            self.reg[reg_a] += self.reg[reg_b]
+        elif op == SUB:
+            self.reg[reg_a] -= self.reg[reg_b]
+        elif op == MUL:
+            self.reg[reg_a] *= self.reg[reg_b]
+        elif op == DIV:
+            if self.reg[reg_b] == 0:
+                print("ERROR: cannot divide by zero")
+                sys.exit(1)
+            self.reg[reg_a] /= self.reg[reg_b]
+        elif op == AND:
+            self.reg[reg_a] = self.reg[reg_a] & self.reg[reg_b]
+        elif op == CMP:
+            if self.reg[reg_a] == self.reg[reg_b]:
+                self.fl = 0b00000001
 
             elif self.reg[reg_a] > self.reg[reg_b]:
                 self.fl = 0b00000010
 
             elif self.reg[reg_a] < self.reg[reg_b]:
                 self.fl = 0b00000100
-            elif op == DEC:
-                self.reg[reg_a] -= 1
-            elif op == INC:
-                self.reg[reg_a] += 1
-            elif op == MOD:
-                if self.reg[reg_b] == 0:
-                    print("ERROR: cannot divide by zero")
-                    sys.exit(1)
-                self.reg[reg_a] %= self.reg[reg_b]
-            elif op == NOT:
-                self.reg[reg_a] = ~self.reg[reg_a]
-            elif op == OR:
-                self.reg[reg_a] = self.reg[reg_a] | self.reg[reg_b]
-            elif op == SHL:
-                self.reg[reg_a] = self.reg[reg_a] << self.reg[reg_b]
-            elif op == SHR:
-                self.reg[reg_a] = self.reg[reg_a] >> self.reg[reg_b]
-            elif op == XOR:
-                self.reg[reg_a] = self.reg[reg_a] ^ self.reg[reg_b]
-            else:
-                raise Exception("Unsupported ALU operation")
+        elif op == DEC:
+            self.reg[reg_a] -= 1
+        elif op == INC:
+            self.reg[reg_a] += 1
+        elif op == MOD:
+            if self.reg[reg_b] == 0:
+                print("ERROR: cannot divide by zero")
+                sys.exit(1)
+            self.reg[reg_a] %= self.reg[reg_b]
+        elif op == NOT:
+            self.reg[reg_a] = ~self.reg[reg_a]
+        elif op == OR:
+            self.reg[reg_a] = self.reg[reg_a] | self.reg[reg_b]
+        elif op == SHL:
+            self.reg[reg_a] = self.reg[reg_a] << self.reg[reg_b]
+        elif op == SHR:
+            self.reg[reg_a] = self.reg[reg_a] >> self.reg[reg_b]
+        elif op == XOR:
+            self.reg[reg_a] = self.reg[reg_a] ^ self.reg[reg_b]
+        else:
+            raise Exception("Unsupported ALU operation")
 
         # keep value between 0-255
-            self.reg[reg_a] = self.reg[reg_a] & 0xFF
+        self.reg[reg_a] = self.reg[reg_a] & 0xFF
 
     def trace(self):
         """
@@ -191,7 +194,6 @@ class CPU:
         print()
 
     def run(self):
-        """Run the CPU."""
 
         while True:
             # instruction register
@@ -256,3 +258,92 @@ class CPU:
         self.reg[reg_a] = self.ram[self.reg[7]]
         # increment sp
         self.reg[7] += 1
+
+    def CALL(self, reg_a):
+        # push return address on to stack
+        ret_addr = self.pc + 2
+        self.reg[7] -= 1
+        self.ram[self.reg[7]] = ret_addr
+
+        # set pc to address stored in given register
+        self.pc = self.reg[reg_a]
+
+    def RET(self):
+        # pop the value from top of the stack and store it in the pc
+        self.pc = self.ram[self.reg[7]]
+        self.reg[7] += 1
+
+    def ST(self, reg_a, reg_b):
+        # store value in register b in the address stored in register a
+        self.ram[self.reg[reg_a]] = self.reg[reg_b]
+
+    def JMP(self, reg_a):
+        # set the pc to the address stored in the given register
+        self.pc = self.reg[reg_a]
+
+    def JEQ(self, reg_a):
+        # if equal flag set to true, jump to address stored in given register
+        if self.fl & 0b00000001 != 0:
+            self.JMP(reg_a)
+        else:
+            self.pc += 2
+
+    def JGE(self, reg_a):
+        # if greater-than flag or equal flag set to true, jump to address
+        # stored in given register
+        if self.fl & 0b00000011 != 0:
+            self.JMP(reg_a)
+        else:
+            self.pc += 2
+
+    def JGT(self, reg_a):
+        # if greater-than flag set to true, jump to address stored in given
+        # register
+        if self.fl & 0b00000010 != 0:
+            self.JMP(reg_a)
+        else:
+            self.pc += 2
+
+    def JLE(self, reg_a):
+        # if less-than flag or equal flag set to true, jump to address stored
+        # in given register
+        if self.fl & 0b00000101 != 0:
+            self.JMP(reg_a)
+        else:
+            self.pc += 2
+
+    def JLT(self, reg_a):
+        # if less-than flag set to true, jump to address stored in given
+        # register
+        if self.fl & 0b00000100 != 0:
+            self.JMP(reg_a)
+        else:
+            self.pc += 2
+
+    def JNE(self, reg_a):
+        # if equal flag is clear (false, 0), jump to the address stored in the
+        # given register.
+        if self.fl & 0b00000001 == 0:
+            self.JMP(reg_a)
+        else:
+            self.pc += 2
+
+    def LD(self, reg_a, reg_b):
+        # loads register a with the value at the memory address stored in
+        # register b
+        self.reg[reg_a] = self.ram[self.reg[reg_b]]
+
+    def NOP(self):
+        # do nothing
+        pass
+
+    def PRA(self, reg_a):
+        # print alpha character value stored in the given register
+        val = self.reg[reg_a]
+        print(chr(val))
+
+    def INT(self):
+        pass
+
+    def IRET(self):
+        pass
